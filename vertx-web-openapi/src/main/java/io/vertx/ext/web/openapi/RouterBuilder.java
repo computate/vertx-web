@@ -210,14 +210,15 @@ public interface RouterBuilder {
     Promise<RouterBuilder> promise = ctx.promise();
 
     OpenAPIHolderImpl loader = new OpenAPIHolderImpl(vertx, vertx.createHttpClient(), vertx.fileSystem(), options);
-    loader.loadOpenAPI(url).onComplete(ar -> {
-      if (ar.failed()) {
-        if (ar.cause() instanceof ValidationException) {
-          promise.fail(RouterBuilderException.createInvalidSpecException(ar.cause()));
+    loader.loadOpenAPI(url)
+      .onFailure(cause -> {
+        if (cause instanceof ValidationException) {
+          promise.fail(RouterBuilderException.createInvalidSpec(cause));
         } else {
-          promise.fail(RouterBuilderException.createInvalidFileSpec(url, ar.cause()));
+          promise.fail(RouterBuilderException.createInvalidFileSpec(url, cause));
         }
-      } else {
+      })
+      .onSuccess(openapi -> {
         RouterBuilder factory;
         try {
           factory = new OpenAPI3RouterBuilderImpl(vertx, loader, options);
@@ -226,8 +227,7 @@ public interface RouterBuilder {
           return;
         }
         promise.complete(factory);
-      }
-    });
+      });
 
     return promise.future();
   }
